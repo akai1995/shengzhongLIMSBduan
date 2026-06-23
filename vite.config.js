@@ -9,6 +9,6 @@ export default defineConfig(function (_a) {
             host: '0.0.0.0',
             port: 5173
         },
-        base: '/'
+        base: '/shengzhongLIMSBduan/'
     };
 });
