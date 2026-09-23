@@ -152,11 +152,9 @@ export default function AIExperiment() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
-      <PageTitle>智能问答</PageTitle>
-
-      <Card 
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', marginTop: 20, borderRadius: 10 }}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 500 }}>
+      <Card bordered={false} 
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 10 }}
         bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 0, height: '100%' }}
       >
         <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>

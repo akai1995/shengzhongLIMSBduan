@@ -1,8 +1,14 @@
 import { ConfigProvider, theme } from 'antd'
 import { useThemeStore } from './store/themeStore'
+import { useAuthStore } from './store/authStore'
 import MainLayout from './components/Layout'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
+import ConsentModal from './pages/auth/ConsentModal'
+import LoginPage from './pages/auth/LoginPage'
+import RegisterPage from './pages/auth/RegisterPage'
+import ConsentPage from './pages/auth/ConsentPage'
+import ChangePasswordPage from './pages/auth/ChangePasswordPage'
 
 import ProjectInitiation from './pages/research/ProjectInitiation'
 import ProgressManagement from './pages/research/ProgressManagement'
@@ -44,6 +50,7 @@ import WasteRequest from './pages/lab/hazardous/WasteRequest'
 import WasteProcess from './pages/lab/hazardous/WasteProcess'
 
 import ElnRecord from './pages/lab/eln/ElnRecord'
+import ElnRecordEditor from './pages/lab/eln/ElnRecordEditor'
 import ElnTemplate from './pages/lab/eln/ElnTemplate'
 import ElnReportTemplate from './pages/lab/eln/ElnReportTemplate'
 import ElnSignature from './pages/lab/eln/ElnSignature'
@@ -92,6 +99,11 @@ import AttendanceManagement from './pages/ai/AttendanceManagement'
 
 function App() {
   const { isDark } = useThemeStore()
+  const { isLoggedIn } = useAuthStore()
+  const location = useLocation()
+
+  const isAuthPage = ['/login', '/register', '/consent', '/change-password'].includes(location.pathname)
+  const showConsent = !isLoggedIn && !isAuthPage
 
   return (
     <ConfigProvider
@@ -171,9 +183,24 @@ function App() {
         },
       }}
     >
-      <MainLayout>
+      {/* 知情同意书弹窗 */}
+      <ConsentModal visible={showConsent} />
+
+      {/* 认证页面（登录/注册/同意书/改密） */}
+      {isAuthPage && (
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/consent" element={<ConsentPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
+        </Routes>
+      )}
+
+      {/* 主系统 */}
+      {!isAuthPage && (
+        <MainLayout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
           
           <Route path="/research/project-initiation" element={<ProjectInitiation />} />
           <Route path="/research/progress" element={<ProgressManagement />} />
@@ -220,6 +247,8 @@ function App() {
           <Route path="/lab/data/experiment" element={<ExperimentData />} />
           <Route path="/lab/software" element={<SoftwareManagement />} />
           <Route path="/lab/eln/record" element={<ElnRecord />} />
+          <Route path="/lab/eln/record/create" element={<ElnRecordEditor />} />
+          <Route path="/lab/eln/record/edit" element={<ElnRecordEditor />} />
           <Route path="/lab/eln/template" element={<ElnTemplate />} />
           <Route path="/lab/eln/report-template" element={<ElnReportTemplate />} />
           <Route path="/lab/eln/signature" element={<ElnSignature />} />
@@ -263,8 +292,9 @@ function App() {
           <Route path="/ai/report-analysis" element={<AIReportAnalysis />} />
           <Route path="/ai/attendance/face-library" element={<FaceLibrary />} />
           <Route path="/ai/attendance/manage" element={<AttendanceManagement />} />
-        </Routes>
-      </MainLayout>
+          </Routes>
+        </MainLayout>
+      )}
     </ConfigProvider>
   )
 }

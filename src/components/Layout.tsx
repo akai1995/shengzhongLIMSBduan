@@ -1,4 +1,4 @@
-import { Layout as AntLayout, Menu, Avatar, Button } from 'antd'
+import { Layout as AntLayout, Menu, Avatar, Button, Dropdown, type MenuProps } from 'antd'
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -50,17 +50,30 @@ import {
   RobotOutlined,
   UserOutlined as FaceIcon,
   UsbOutlined,
+  MessageOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
 import { useThemeStore } from '../store/themeStore'
 import { useSidebarStore } from '../store/sidebarStore'
 import { useState, useEffect, type ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import AIExperiment from '../pages/ai/AIExperiment'
+import OCRRecognition from '../pages/ai/OCRRecognition'
 
 const { Header, Sider, Content } = AntLayout
 
 interface LayoutProps {
   children: ReactNode
 }
+
+// 首页的侧边栏菜单
+const homeMenuItems = [
+  {
+    key: '/',
+    label: '首页',
+    icon: <HomeOutlined />,
+  },
+]
 
 // 科研管理的侧边栏菜单
 const researchMenuItems = [
@@ -72,18 +85,10 @@ const researchMenuItems = [
       { key: '/research/project-initiation', label: '项目立项', icon: <PlusOutlined /> },
       { key: '/research/progress', label: '进度管理', icon: <ClockCircleOutlined /> },
       { key: '/research/members', label: '成员管理', icon: <TeamOutlined /> },
-      { key: '/research/achievements', label: '成果管理', icon: <TrophyOutlined /> },
       { key: '/research/funds', label: '经费管理', icon: <DollarOutlined /> },
-    ],
-  },
-  {
-    key: 'approval',
-    label: '流程审批中心',
-    icon: <FileTextOutlined />,
-    children: [
-      { key: '/approval/pending', label: '待办事项', icon: <FileTextOutlined /> },
-      { key: '/approval/done', label: '已办事项', icon: <FileTextOutlined /> },
-      { key: '/approval/cc', label: '抄送管理', icon: <ShareAltOutlined /> },
+      { key: '/research/achievements', label: '成果管理', icon: <TrophyOutlined /> },
+      { key: '/research/sample', label: '样本管理', icon: <InboxOutlined /> },
+      { key: '/research/project-approval', label: '项目立项审批', icon: <FileTextOutlined /> },
     ],
   },
   {
@@ -92,8 +97,9 @@ const researchMenuItems = [
     icon: <BookOutlined />,
     children: [
       { key: '/training/materials', label: '培训资料', icon: <VideoCameraOutlined /> },
-      { key: '/training/learning', label: '在线学习', icon: <ReadOutlined /> },
       { key: '/training/question-bank', label: '题库管理', icon: <BookOutlined /> },
+      { key: '/training/paper', label: '试卷管理', icon: <FileExcelOutlined /> },
+      { key: '/training/learning', label: '在线学习', icon: <ReadOutlined /> },
       { key: '/training/exam', label: '在线考试', icon: <FileProtectOutlined /> },
       { key: '/training/scores', label: '成绩查询', icon: <FileTextOutlined /> },
     ],
@@ -103,25 +109,27 @@ const researchMenuItems = [
 // 实验室业务的侧边栏菜单
 const labMenuItems = [
   {
-      key: 'safety',
-      label: '安全准入',
-      icon: <SafetyOutlined />,
-      children: [
-        { key: '/lab/safety/visit', label: '来访申请', icon: <UserOutlined /> },
-        { key: '/lab/safety/notice', label: '安全须知', icon: <SafetyCertificateOutlined /> },
-        { key: '/lab/safety/records', label: '来访记录', icon: <HistoryOutlined /> },
-      ],
-    },
+    key: 'safety',
+    label: '安全准入',
+    icon: <SafetyOutlined />,
+    children: [
+      { key: '/lab/safety/info', label: '实验室信息', icon: <MonitorOutlined /> },
+      { key: '/lab/safety/notice', label: '安全须知', icon: <SafetyCertificateOutlined /> },
+      { key: '/lab/safety/visit', label: '来访申请', icon: <UserOutlined /> },
+      { key: '/lab/safety/visit-approval', label: '来访申请审批', icon: <FileTextOutlined /> },
+    ],
+  },
   {
     key: 'equipment',
     label: '仪器设备管理',
     icon: <ExperimentOutlined />,
     children: [
       { key: '/lab/equipment/archive', label: '仪器档案', icon: <FileSearchOutlined /> },
+      { key: '/lab/equipment/reservation-config', label: '预约配置', icon: <SettingOutlined /> },
       { key: '/lab/equipment/reservation', label: '预约登记', icon: <CalendarOutlined /> },
       { key: '/lab/equipment/usage', label: '使用记录', icon: <HistoryOutlined /> },
       { key: '/lab/equipment/maintenance', label: '维护提醒', icon: <AlertOutlined /> },
-      { key: '/lab/equipment/monitor', label: '状态监控', icon: <MonitorOutlined /> },
+      { key: '/lab/equipment/approval', label: '设备预约审批', icon: <FileTextOutlined /> },
     ],
   },
   {
@@ -130,24 +138,34 @@ const labMenuItems = [
     icon: <ScanOutlined />,
     children: [
       { key: '/lab/reagent/purchase', label: '采购登记', icon: <ShoppingCartOutlined /> },
-      { key: '/lab/reagent/inbound', label: '入库管理（扫码入库）', icon: <InboxOutlined /> },
+      { key: '/lab/reagent/inbound', label: '入库管理', icon: <InboxOutlined /> },
       { key: '/lab/reagent/stock', label: '库存查询', icon: <BarChartOutlined /> },
-      { key: '/lab/reagent/borrow', label: '领用归还', icon: <FileSyncOutlined /> },
-      { key: '/lab/reagent/warning', label: '库存预警', icon: <WarningOutlined /> },
+      { key: '/lab/reagent/outbound', label: '出库管理', icon: <SendOutlined /> },
+      { key: '/lab/reagent/approval', label: '试剂耗材审批', icon: <FileTextOutlined /> },
     ],
   },
   {
     key: 'hazardous',
-    label: '危化品与废弃物管理',
+    label: '危化品管理',
     icon: <WarningOutlined />,
     children: [
-      { key: '/lab/hazardous/purchase', label: '采购登记', icon: <ShoppingCartOutlined /> },
+      { key: '/lab/hazardous/purchase', label: '采购管理', icon: <ShoppingCartOutlined /> },
       { key: '/lab/hazardous/inbound', label: '入库管理', icon: <InboxOutlined /> },
-      { key: '/lab/hazardous/borrow', label: '领用归还', icon: <FileSyncOutlined /> },
-      { key: '/lab/hazardous/stock', label: '库存查询', icon: <FileTextOutlined /> },
-      { key: '/lab/hazardous/warning', label: '库存预警', icon: <WarningOutlined /> },
-      { key: '/lab/hazardous/waste', label: '废弃物申请', icon: <SendOutlined /> },
-      { key: '/lab/hazardous/process', label: '处理记录', icon: <HistoryOutlined /> },
+      { key: '/lab/hazardous/stock', label: '库存管理', icon: <BarChartOutlined /> },
+      { key: '/lab/hazardous/outbound', label: '出库管理', icon: <SendOutlined /> },
+      { key: '/lab/hazardous/approval', label: '危化品审批', icon: <FileTextOutlined /> },
+    ],
+  },
+  {
+    key: 'eln',
+    label: '电子实验记录本',
+    icon: <EditOutlined />,
+    children: [
+      { key: '/lab/eln/ai-assistant', label: 'AI助手', icon: <RobotOutlined /> },
+      { key: '/lab/eln/record', label: '实验记录', icon: <EditOutlined /> },
+      { key: '/lab/eln/template', label: '实验模板', icon: <FileExcelOutlined /> },
+      { key: '/lab/eln/report-template', label: '报告模板', icon: <FileTextOutlined /> },
+      { key: '/lab/eln/report', label: '报告生成', icon: <FilePdfOutlined /> },
     ],
   },
   {
@@ -160,17 +178,12 @@ const labMenuItems = [
     ],
   },
   {
-    key: 'eln',
-    label: '电子实验记录本',
-    icon: <EditOutlined />,
+    key: 'purchase',
+    label: '采购管理',
+    icon: <ShoppingCartOutlined />,
     children: [
-      { key: '/lab/eln/ai-assistant', label: 'AI助手', icon: <RobotOutlined /> },
-      { key: '/lab/eln/record', label: '实验记录', icon: <EditOutlined /> },
-      { key: '/lab/eln/template', label: '实验模板管理', icon: <FileExcelOutlined /> },
-      { key: '/lab/eln/signature', label: '电子签名', icon: <SafetyCertificateOutlined /> },
-      { key: '/lab/eln/report', label: '报告生成', icon: <FilePdfOutlined /> },
-      { key: '/lab/eln/report-template', label: '报告模板管理', icon: <FileTextOutlined /> },
-      { key: '/lab/eln/share', label: '共享协作', icon: <ShareIcon /> },
+      { key: '/lab/purchase/supplier', label: '供应商管理', icon: <TeamOutlined /> },
+      { key: '/lab/purchase/category', label: '商品类目管理', icon: <FolderOpenOutlined /> },
     ],
   },
   {
@@ -190,10 +203,8 @@ const iotMenuItems = [
     label: '环境与设备监控',
     icon: <AlertOutlined />,
     children: [
-      { key: '/iot/temperature-humidity', label: '温湿度监控', icon: <MonitorOutlined /> },
-      { key: '/iot/device-status', label: '设备状态监控', icon: <ClockCircleOutlined /> },
+      { key: '/iot/device-status', label: '设备状态监控', icon: <MonitorOutlined /> },
       { key: '/iot/abnormal-alarm', label: '异常报警', icon: <AlertOutlined /> },
-      { key: '/iot/alarm-records', label: '报警记录', icon: <HistoryOutlined /> },
     ],
   },
   {
@@ -201,7 +212,7 @@ const iotMenuItems = [
     label: '紫外线消毒灯',
     icon: <BulbOutlined />,
     children: [
-      { key: '/iot/uvc', label: '紫外线灯管理', icon: <MonitorOutlined /> },
+      { key: '/iot/uvc', label: '紫外线灯', icon: <BulbOutlined /> },
       { key: '/iot/uvc/schedule', label: '定时开关', icon: <ClockCircleOutlined /> },
     ],
   },
@@ -214,7 +225,7 @@ const iotMenuItems = [
       { key: '/iot/access-control/records', label: '进出记录管理', icon: <HistoryOutlined /> },
     ],
   },
-  ]
+]
 
 
 
@@ -236,7 +247,7 @@ const aiMenuItems = [
     children: [
       { key: '/ai/knowledge/upload', label: '知识上传', icon: <UploadOutlined /> },
       { key: '/ai/knowledge/category', label: '分类管理', icon: <FolderOpenOutlined /> },
-      { key: '/ai/knowledge/search', label: '全文检索', icon: <SearchOutlined /> },
+      { key: '/ai/knowledge/search', label: '知识检索', icon: <SearchOutlined /> },
       { key: '/ai/knowledge/permission', label: '权限控制', icon: <LockOutlined /> },
     ],
   },
@@ -254,6 +265,7 @@ const aiMenuItems = [
     label: 'AI考勤',
     icon: <FaceIcon />,
     children: [
+      { key: '/ai/attendance/camera', label: '摄像头管理', icon: <MonitorOutlined /> },
       { key: '/ai/attendance/face-library', label: '人脸库管理', icon: <FaceIcon /> },
       { key: '/ai/attendance/manage', label: '考勤管理', icon: <ClockCircleOutlined /> },
     ],
@@ -307,6 +319,10 @@ export default function MainLayout({ children }: LayoutProps) {
   const location = useLocation()
   const [openKeys, setOpenKeys] = useState<string[]>(getOpenKeys(location.pathname))
   const [currentNav, setCurrentNav] = useState<string>(getCurrentNav(location.pathname))
+  const [aiExpanded, setAiExpanded] = useState(false)
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
+  const [ocrDrawerOpen, setOcrDrawerOpen] = useState(false)
+  const [hoverNav, setHoverNav] = useState<string | null>(null)
 
   // 路径变化时更新当前导航
   useEffect(() => {
@@ -354,7 +370,8 @@ export default function MainLayout({ children }: LayoutProps) {
     }
   }
 
-  const sidebarItems = currentNav === 'research' ? researchMenuItems : 
+  const sidebarItems = currentNav === 'home' ? homeMenuItems : 
+                       currentNav === 'research' ? researchMenuItems : 
                        currentNav === 'lab' ? labMenuItems : 
                        currentNav === 'iot' ? iotMenuItems : aiMenuItems
 
@@ -751,6 +768,79 @@ export default function MainLayout({ children }: LayoutProps) {
           border-color: #373737 !important;
           color: #DCDCDC !important;
         }
+        /* 顶部导航下拉菜单样式 */
+        .ant-dropdown-menu {
+          padding: 8px !important;
+          border-radius: 8px !important;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+        }
+        body:not(.dark-mode) .ant-dropdown-menu {
+          background-color: #FFFFFF !important;
+          border: 1px solid #E5E5E5 !important;
+        }
+        body.dark-mode .ant-dropdown-menu {
+          background-color: #141414 !important;
+          border: 1px solid #2C2C2C !important;
+        }
+        .ant-dropdown-menu-item,
+        .ant-dropdown-menu-submenu-title {
+          border-radius: 6px !important;
+          padding: 10px 16px !important;
+          font-size: 14px !important;
+          transition: all 0.2s ease !important;
+        }
+        body:not(.dark-mode) .ant-dropdown-menu-item,
+        body:not(.dark-mode) .ant-dropdown-menu-submenu-title {
+          color: #262626 !important;
+        }
+        body.dark-mode .ant-dropdown-menu-item,
+        body.dark-mode .ant-dropdown-menu-submenu-title {
+          color: #DCDCDC !important;
+        }
+        .ant-dropdown-menu-item:hover,
+        .ant-dropdown-menu-submenu-title:hover {
+          background-color: #E7F2FB !important;
+          color: #177DDC !important;
+        }
+        body.dark-mode .ant-dropdown-menu-item:hover,
+        body.dark-mode .ant-dropdown-menu-submenu-title:hover {
+          background-color: #1D1D1D !important;
+          color: #177DDC !important;
+        }
+        .ant-dropdown-menu-submenu {
+          position: relative !important;
+        }
+        /* 三级菜单弹出层样式 */
+        .ant-dropdown-menu-submenu-popup {
+          border-radius: 8px !important;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+        }
+        body:not(.dark-mode) .ant-dropdown-menu-submenu-popup {
+          background-color: #FFFFFF !important;
+          border: 1px solid #E5E5E5 !important;
+        }
+        body.dark-mode .ant-dropdown-menu-submenu-popup {
+          background-color: #141414 !important;
+          border: 1px solid #2C2C2C !important;
+        }
+        body:not(.dark-mode) .ant-dropdown-menu-submenu-popup .ant-dropdown-menu {
+          background-color: #FFFFFF !important;
+          border: none !important;
+        }
+        body.dark-mode .ant-dropdown-menu-submenu-popup .ant-dropdown-menu {
+          background-color: #141414 !important;
+          border: none !important;
+        }
+        .ant-dropdown-menu-submenu-popup .ant-dropdown-menu-item {
+          padding: 8px 14px !important;
+          font-size: 13px !important;
+        }
+        /* 下拉菜单图标样式 */
+        .ant-dropdown-menu-item .anticon,
+        .ant-dropdown-menu-submenu-title .anticon {
+          font-size: 16px !important;
+          margin-right: 10px !important;
+        }
       `}</style>
       <AntLayout style={{ height: '100vh' }}>
         <Header
@@ -793,6 +883,7 @@ export default function MainLayout({ children }: LayoutProps) {
                   {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 </div>
               </div>
+              {/* 首页 - 无子菜单 */}
               <div
                 onClick={() => handleNavChange('home')}
                 className={`nav-item ${currentNav === 'home' ? 'active' : ''}`}
@@ -800,36 +891,272 @@ export default function MainLayout({ children }: LayoutProps) {
                 <HomeOutlined style={{ fontSize: 18 }} />
                 <span>首页</span>
               </div>
+              {/* 科研管理 */}
               <div
                 onClick={() => handleNavChange('research')}
+                onMouseEnter={() => setHoverNav('research')}
+                onMouseLeave={() => setHoverNav(null)}
                 className={`nav-item ${currentNav === 'research' ? 'active' : ''}`}
+                style={{ position: 'relative' }}
               >
                 <FolderOpenOutlined style={{ fontSize: 18 }} />
                 <span>科研管理</span>
               </div>
+              {/* 实验室业务 */}
               <div
                 onClick={() => handleNavChange('lab')}
+                onMouseEnter={() => setHoverNav('lab')}
+                onMouseLeave={() => setHoverNav(null)}
                 className={`nav-item ${currentNav === 'lab' ? 'active' : ''}`}
+                style={{ position: 'relative' }}
               >
                 <ExperimentOutlined style={{ fontSize: 18 }} />
                 <span>实验室业务</span>
               </div>
+              {/* 智能物联 */}
               <div
                 onClick={() => handleNavChange('iot')}
+                onMouseEnter={() => setHoverNav('iot')}
+                onMouseLeave={() => setHoverNav(null)}
                 className={`nav-item ${currentNav === 'iot' ? 'active' : ''}`}
+                style={{ position: 'relative' }}
               >
                 <CiOutlined style={{ fontSize: 18 }} />
                 <span>智能物联</span>
               </div>
+              {/* AI智能辅助 */}
               <div
                 onClick={() => handleNavChange('ai')}
+                onMouseEnter={() => setHoverNav('ai')}
+                onMouseLeave={() => setHoverNav(null)}
                 className={`nav-item ${currentNav === 'ai' ? 'active' : ''}`}
+                style={{ position: 'relative' }}
               >
                 <RobotOutlined style={{ fontSize: 18 }} />
                 <span>AI智能辅助</span>
               </div>
             </div>
           </div>
+
+          {/* 悬停菜单面板 - 显示所有二级和三级菜单 */}
+          {hoverNav && (
+            <div
+              onMouseEnter={() => setHoverNav(hoverNav)}
+              onMouseLeave={() => setHoverNav(null)}
+              style={{
+                position: 'fixed',
+                top: 50,
+                left: 240,
+                right: 0,
+                backgroundColor: isDark ? '#141414' : '#FFFFFF',
+                borderBottom: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                zIndex: 999,
+                padding: '16px 24px',
+                display: 'grid',
+                gridTemplateColumns: 'max-content 1fr',
+                gap: '16px 24px',
+                maxHeight: 'calc(100vh - 50px)',
+                overflowY: 'auto',
+              }}
+            >
+              {/* 科研管理 */}
+              <div style={{
+                border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+                borderRadius: 8,
+                padding: '12px 16px',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#177DDC', height: 30, display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                  科研管理
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 32px' }}>
+                  {researchMenuItems.map((secondLevel: any) => (
+                    <div key={secondLevel.key}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#49AA19', height: 30, display: 'flex', alignItems: 'center' }}>
+                        {secondLevel.label}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {secondLevel.children.map((thirdLevel: any) => (
+                          <div
+                            key={thirdLevel.key}
+                            onClick={() => { navigate(thirdLevel.key); setHoverNav(null) }}
+                            style={{
+                              fontSize: 12,
+                              color: isDark ? '#ADADAD' : '#595959',
+                              height: 30,
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0 8px',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = isDark ? '#1D1D1D' : '#E7F2FB'
+                              e.currentTarget.style.color = '#177DDC'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                              e.currentTarget.style.color = isDark ? '#ADADAD' : '#595959'
+                            }}
+                          >
+                            {thirdLevel.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 实验室业务 */}
+              <div style={{
+                border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+                borderRadius: 8,
+                padding: '12px 16px',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#177DDC', height: 30, display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                  实验室业务
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 32px' }}>
+                  {labMenuItems.map((secondLevel: any) => (
+                    <div key={secondLevel.key}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#49AA19', height: 30, display: 'flex', alignItems: 'center' }}>
+                        {secondLevel.label}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {secondLevel.children.map((thirdLevel: any) => (
+                          <div
+                            key={thirdLevel.key}
+                            onClick={() => { navigate(thirdLevel.key); setHoverNav(null) }}
+                            style={{
+                              fontSize: 12,
+                              color: isDark ? '#ADADAD' : '#595959',
+                              height: 30,
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0 8px',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = isDark ? '#1D1D1D' : '#E7F2FB'
+                              e.currentTarget.style.color = '#177DDC'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                              e.currentTarget.style.color = isDark ? '#ADADAD' : '#595959'
+                            }}
+                          >
+                            {thirdLevel.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 智能物联 */}
+              <div style={{
+                border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+                borderRadius: 8,
+                padding: '12px 16px',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#177DDC', height: 30, display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                  智能物联
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 32px' }}>
+                  {iotMenuItems.map((secondLevel: any) => (
+                    <div key={secondLevel.key}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#49AA19', height: 30, display: 'flex', alignItems: 'center' }}>
+                        {secondLevel.label}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {secondLevel.children.map((thirdLevel: any) => (
+                          <div
+                            key={thirdLevel.key}
+                            onClick={() => { navigate(thirdLevel.key); setHoverNav(null) }}
+                            style={{
+                              fontSize: 12,
+                              color: isDark ? '#ADADAD' : '#595959',
+                              height: 30,
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0 8px',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = isDark ? '#1D1D1D' : '#E7F2FB'
+                              e.currentTarget.style.color = '#177DDC'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                              e.currentTarget.style.color = isDark ? '#ADADAD' : '#595959'
+                            }}
+                          >
+                            {thirdLevel.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI智能辅助 */}
+              <div style={{
+                border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+                borderRadius: 8,
+                padding: '12px 16px',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#177DDC', height: 30, display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                  AI智能辅助
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 32px' }}>
+                  {aiMenuItems.map((secondLevel: any) => (
+                    <div key={secondLevel.key}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#49AA19', height: 30, display: 'flex', alignItems: 'center' }}>
+                        {secondLevel.label}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {secondLevel.children.map((thirdLevel: any) => (
+                          <div
+                            key={thirdLevel.key}
+                            onClick={() => { navigate(thirdLevel.key); setHoverNav(null) }}
+                            style={{
+                              fontSize: 12,
+                              color: isDark ? '#ADADAD' : '#595959',
+                              height: 30,
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0 8px',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = isDark ? '#1D1D1D' : '#E7F2FB'
+                              e.currentTarget.style.color = '#177DDC'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                              e.currentTarget.style.color = isDark ? '#ADADAD' : '#595959'
+                            }}
+                          >
+                            {thirdLevel.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 右侧 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '0 16px', height: '100%' }}>
@@ -927,6 +1254,244 @@ export default function MainLayout({ children }: LayoutProps) {
           </Content>
         </AntLayout>
       </AntLayout>
+
+      {/* AI智能助手悬浮图标 */}
+      {aiExpanded && (
+        <div 
+          onClick={() => setAiExpanded(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 998 }}
+        />
+      )}
+      <div style={{ 
+        position: 'fixed', 
+        bottom: 40, 
+        right: 40, 
+        zIndex: 1001, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'flex-end', 
+        gap: 12 
+      }}>
+        {aiExpanded && (
+          <>
+            <div 
+              className="ai-action-btn"
+              style={{ 
+                transform: 'translateY(12px)', 
+                opacity: aiExpanded ? 1 : 0, 
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' 
+              }}
+            >
+              <button
+                onClick={() => { setAiDrawerOpen(true); setOcrDrawerOpen(false); setAiExpanded(false); }}
+                style={{
+                  padding: '12px 20px',
+                  borderRadius: 24,
+                  backgroundColor: isDark ? '#141414' : '#FFFFFF',
+                  border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: isDark ? '#DCDCDC' : '#262626',
+                  transition: 'all 0.2s ease',
+                  marginBottom: 8
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#177DDC';
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.color = '#177DDC';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = isDark ? '#2C2C2C' : '#E5E5E5';
+                  e.currentTarget.style.backgroundColor = isDark ? '#141414' : '#FFFFFF';
+                  e.currentTarget.style.color = isDark ? '#DCDCDC' : '#262626';
+                }}
+              >
+                <MessageOutlined style={{ fontSize: 16, color: '#177DDC' }} />
+                智能问答
+              </button>
+              <button
+                onClick={() => { setOcrDrawerOpen(true); setAiDrawerOpen(false); setAiExpanded(false); }}
+                style={{
+                  padding: '12px 20px',
+                  borderRadius: 24,
+                  backgroundColor: isDark ? '#141414' : '#FFFFFF',
+                  border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: isDark ? '#DCDCDC' : '#262626',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#177DDC';
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.color = '#177DDC';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = isDark ? '#2C2C2C' : '#E5E5E5';
+                  e.currentTarget.style.backgroundColor = isDark ? '#141414' : '#FFFFFF';
+                  e.currentTarget.style.color = isDark ? '#DCDCDC' : '#262626';
+                }}
+              >
+                <ScanOutlined style={{ fontSize: 16, color: '#177DDC' }} />
+                OCR识别
+              </button>
+            </div>
+          </>
+        )}
+        <button
+          className="ai-floating-btn"
+          onClick={() => {
+            if (location.pathname.includes('/lab/eln/record/create') || location.pathname.includes('/lab/eln/record/edit')) {
+              window.dispatchEvent(new CustomEvent('open-ai-modal'))
+            } else {
+              setAiExpanded(!aiExpanded)
+            }
+          }}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #177DDC 0%, #0F5AA6 100%)',
+            border: 'none',
+            boxShadow: '0 4px 20px rgba(23, 125, 220, 0.4)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.12)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* 天线 */}
+            <rect x="11" y="0" width="2" height="3" rx="1" fill="#FFFFFF"/>
+            <circle cx="12" cy="0" r="2" fill="#FFFFFF"/>
+            {/* 左右侧耳 */}
+            <rect x="0" y="7" width="3" height="8" rx="1.5" fill="#FFFFFF"/>
+            <rect x="21" y="7" width="3" height="8" rx="1.5" fill="#FFFFFF"/>
+            {/* 头部外框 */}
+            <rect x="3" y="5" width="18" height="16" rx="3" fill="none" stroke="#FFFFFF" strokeWidth="2"/>
+            {/* 脸部屏幕 */}
+            <rect x="6" y="8" width="12" height="9" rx="2" fill="#FFFFFF" opacity="0.2"/>
+            {/* 眼睛 */}
+            <circle cx="9.5" cy="12.5" r="1.5" fill="#FFFFFF"/>
+            <circle cx="14.5" cy="12.5" r="1.5" fill="#FFFFFF"/>
+          </svg>
+        </button>
+      </div>
+
+      <style>{`
+        @keyframes aiPulse {
+          0%, 100% { box-shadow: 0 4px 20px rgba(23, 125, 220, 0.4); }
+          50% { box-shadow: 0 4px 28px rgba(23, 125, 220, 0.6); }
+        }
+        
+        @keyframes aiSlideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .ai-floating-btn {
+          animation: aiPulse 2.5s ease-in-out infinite;
+        }
+        
+        .ai-floating-btn:hover {
+          animation: none;
+        }
+        
+        .ai-action-btn {
+          animation: aiSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+        }
+        
+        .ai-action-btn:nth-child(2) {
+          animation-delay: 0.05s;
+        }
+      `}</style>
+
+      {/* 智能问答右下角弹窗 */}
+      {aiDrawerOpen && (
+        <div style={{
+          position: 'fixed',
+          bottom: 100,
+          right: 40,
+          width: 400,
+          maxHeight: 'calc(100vh - 140px)',
+          height: 600,
+          zIndex: 1000,
+          backgroundColor: isDark ? '#141414' : '#FFFFFF',
+          borderRadius: 12,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 20px',
+            borderBottom: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 16, fontWeight: 600, color: isDark ? '#DCDCDC' : '#262626' }}>智能问答</span>
+            <Button type="text" size="small" onClick={() => setAiDrawerOpen(false)} style={{ color: isDark ? '#ADADAD' : '#8C8C8C' }}>✕</Button>
+          </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: 0 }}>
+            <AIExperiment />
+          </div>
+        </div>
+      )}
+
+      {/* OCR识别右下角弹窗 */}
+      {ocrDrawerOpen && (
+        <div style={{
+          position: 'fixed',
+          bottom: 100,
+          right: 40,
+          width: 400,
+          maxHeight: 'calc(100vh - 140px)',
+          height: 600,
+          zIndex: 1000,
+          backgroundColor: isDark ? '#141414' : '#FFFFFF',
+          borderRadius: 12,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 20px',
+            borderBottom: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 16, fontWeight: 600, color: isDark ? '#DCDCDC' : '#262626' }}>OCR识别</span>
+            <Button type="text" size="small" onClick={() => setOcrDrawerOpen(false)} style={{ color: isDark ? '#ADADAD' : '#8C8C8C' }}>✕</Button>
+          </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: 0 }}>
+            <OCRRecognition compact />
+          </div>
+        </div>
+      )}
     </>
   )
 }

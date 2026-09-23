@@ -1,6 +1,6 @@
-import { Card, Form, Button, Table, Modal, Tag, Space, Upload, message, Row, Col, Input } from 'antd'
-import { UploadOutlined, SyncOutlined, FileTextOutlined, SaveOutlined, DownloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined, EditOutlined } from '@ant-design/icons'
-import { useState, useEffect } from 'react'
+import { Card, Form, Button, Table, Modal, Tag, Space, Upload, message, Row, Col, Input, Result } from 'antd'
+import { UploadOutlined, SyncOutlined, FileTextOutlined, SaveOutlined, DownloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined, EditOutlined, CameraOutlined } from '@ant-design/icons'
+import { useState, useEffect, useRef } from 'react'
 import PageTitle from '../../components/PageTitle/PageTitle'
 
 const { TextArea } = Input
@@ -25,7 +25,12 @@ interface RecognitionResult {
   fieldData: FieldData[]
 }
 
-export default function OCRRecognition() {
+interface OCRRecognitionProps {
+  compact?: boolean
+  onInsertToDocument?: (text: string) => void
+}
+
+export default function OCRRecognition({ compact = false, onInsertToDocument }: OCRRecognitionProps) {
   const [form] = Form.useForm()
   const [recognizing, setRecognizing] = useState(false)
   const [recordList, setRecordList] = useState<RecognitionRecord[]>([])
@@ -34,6 +39,10 @@ export default function OCRRecognition() {
   const [modalRecord, setModalRecord] = useState<RecognitionResult | null>(null)
   const [editingRecord, setEditingRecord] = useState<RecognitionResult | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [cameraVisible, setCameraVisible] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   const fileNames = [
     '检验报告_LAB20260501001.pdf',
@@ -57,6 +66,11 @@ export default function OCRRecognition() {
 
   useEffect(() => {
     setRecordList(initialRecords)
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+    }
   }, [])
 
   const handleRecognize = () => {
@@ -156,6 +170,49 @@ export default function OCRRecognition() {
     message.success(`已下载: ${record.fileName}`)
   }
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      streamRef.current = stream
+      setCameraVisible(true)
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+      }, 100)
+    } catch {
+      message.error('无法访问摄像头，请检查权限设置')
+    }
+  }
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    setCameraVisible(false)
+  }
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(video, 0, 0)
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `拍照_${Date.now()}.jpg`, { type: 'image/jpeg' })
+          form.setFieldsValue({ files: [{ uid: `-${Date.now()}`, name: file.name, status: 'done', originFileObj: file }] })
+          stopCamera()
+          message.success('拍照成功')
+        }
+      }, 'image/jpeg', 0.9)
+    }
+  }
+
   const recordColumns = [
     { title: '文件名称', dataIndex: 'fileName', key: 'fileName', width: 280, ellipsis: true },
     { title: '识别时间', dataIndex: 'recognitionTime', key: 'recognitionTime', width: 180 },
@@ -189,9 +246,117 @@ export default function OCRRecognition() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
-      <PageTitle>OCR识别</PageTitle>
+      {!compact && <PageTitle>OCR识别</PageTitle>}
 
-      <Row gutter={24}>
+      {compact ? (
+        <>
+          {selectedRecord ? (
+            <div style={{ padding: '12px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 18 }} />
+                <span style={{ fontWeight: 600, fontSize: 14 }}>识别完成</span>
+                <span style={{ color: '#8c8c8c', fontSize: 12, marginLeft: 'auto' }}>{selectedRecord.fileName}</span>
+              </div>
+              <div style={{ background: '#f5f5f5', borderRadius: 8, padding: 12, maxHeight: 300, overflow: 'auto', marginBottom: 12 }}>
+                {selectedRecord.fieldData.map((field, idx) => (
+                  <div key={idx} style={{ display: 'flex', padding: '6px 0', borderBottom: idx < selectedRecord.fieldData.length - 1 ? '1px solid #e8e8e8' : 'none' }}>
+                    <span style={{ color: '#8c8c8c', minWidth: 80, fontSize: 13 }}>{field.fieldName}</span>
+                    <span style={{ color: '#262626', fontSize: 13 }}>{field.fieldValue}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <Button onClick={() => setSelectedRecord(null)}>继续上传</Button>
+                {onInsertToDocument && (
+                  <Button type="primary" onClick={() => {
+                    const text = selectedRecord.fieldData.map(f => `${f.fieldName}: ${f.fieldValue}`).join('\n')
+                    onInsertToDocument(text)
+                  }}>
+                    插入文档
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <Card 
+              bordered={false}
+              style={{ borderRadius: 10, boxShadow: 'none' }} 
+              styles={{ body: { padding: 20 } }}
+            >
+              <Form form={form} layout="vertical">
+                <Form.Item name="files" valuePropName="fileList" getValueFromEvent={(e) => Array.isArray(e) ? e : e?.fileList}>
+                  <Upload.Dragger
+                    beforeUpload={() => false}
+                    accept=".jpg,.png,.jpeg,.pdf"
+                    multiple
+                    maxCount={10}
+                  >
+                    <p className="ant-upload-drag-icon">
+                      <UploadOutlined style={{ fontSize: 48, color: '#177DDC' }} />
+                    </p>
+                    <p className="ant-upload-text">点击或拖拽文件到此处上传</p>
+                    <p className="ant-upload-hint">支持 jpg、png、jpeg、pdf 格式，单文件不超过20MB</p>
+                  </Upload.Dragger>
+                </Form.Item>
+
+                <Form.Item>
+                  <div
+                    onClick={() => document.getElementById('ocr-photo-upload')?.click()}
+                    style={{
+                      border: '1px dashed #d9d9d9',
+                      borderRadius: 8,
+                      padding: '20px 0',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.3s',
+                      background: '#fafafa',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#177DDC')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#d9d9d9')}
+                  >
+                    <p style={{ marginBottom: 8 }}>
+                      <CameraOutlined style={{ fontSize: 48, color: '#177DDC' }} />
+                    </p>
+                    <p style={{ fontSize: 14, color: '#262626', margin: 0 }}>点击拍照上传</p>
+                    <p style={{ fontSize: 12, color: '#8C8C8C', margin: '4px 0 0' }}>选择本地图片识别文字内容</p>
+                    <input
+                      id="ocr-photo-upload"
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const newFileList: any[] = [{
+                          uid: String(Date.now()),
+                          name: file.name,
+                          status: 'done' as const,
+                          originFileObj: file,
+                        }]
+                        form.setFieldsValue({ files: newFileList })
+                        e.target.value = ''
+                      }}
+                    />
+                  </div>
+                </Form.Item>
+
+                <Form.Item style={{ textAlign: 'center' }}>
+                  <Button
+                    type="primary"
+                    onClick={handleRecognize}
+                    loading={recognizing}
+                    icon={<SyncOutlined spin={recognizing} />}
+                  >
+                    {recognizing ? '识别中...' : '开始智能识别'}
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Card>
+          )}
+        </>
+      ) : (
+        <>
+        <Row gutter={24}>
         <Col span={8}>
           <Card 
             title="文件上传" 
@@ -217,12 +382,36 @@ export default function OCRRecognition() {
               <Form.Item style={{ textAlign: 'center' }}>
                 <Space>
                   <Button
+                    icon={<CameraOutlined />}
+                    onClick={() => document.getElementById('ocr-photo-upload-full')?.click()}
+                  >
+                    拍照上传
+                  </Button>
+                  <input
+                    id="ocr-photo-upload-full"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const newFileList: any[] = [{
+                        uid: String(Date.now()),
+                        name: file.name,
+                        status: 'done' as const,
+                        originFileObj: file,
+                      }]
+                      form.setFieldsValue({ files: newFileList })
+                      e.target.value = ''
+                    }}
+                  />
+                  <Button
                     type="primary"
                     onClick={handleRecognize}
                     loading={recognizing}
                     icon={<SyncOutlined spin={recognizing} />}
                   >
-                    {recognizing ? '识别中...' : '开始智能识别'}
+                    {recognizing ? '识别中...' : '本地上传'}
                   </Button>
                 </Space>
               </Form.Item>
@@ -378,6 +567,34 @@ export default function OCRRecognition() {
             </div>
           </div>
         )}
+      </Modal>
+        </>
+      )}
+      <Modal
+        title="拍照上传"
+        open={cameraVisible}
+        onCancel={stopCamera}
+        footer={null}
+        width={640}
+        destroyOnClose
+      >
+        <div style={{ textAlign: 'center' }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            style={{ width: '100%', borderRadius: 8, backgroundColor: '#000' }}
+          />
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+          <div style={{ marginTop: 16 }}>
+            <Space>
+              <Button onClick={stopCamera}>取消</Button>
+              <Button type="primary" icon={<CameraOutlined />} onClick={capturePhoto}>
+                拍照
+              </Button>
+            </Space>
+          </div>
+        </div>
       </Modal>
     </div>
   )

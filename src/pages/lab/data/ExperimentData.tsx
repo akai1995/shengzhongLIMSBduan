@@ -102,7 +102,7 @@ export default function ExperimentData() {
           <Card style={{ borderRadius: 10 }} bodyStyle={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a' }} />
-              <span style={{ fontSize: 14, color: isDark ? '#999' : '#666' }}>已更新设备</span>
+              <span style={{ fontSize: 14, color: isDark ? '#999' : '#666' }}>已同步设备</span>
             </div>
             <Statistic
               value={updatedCount}
@@ -117,7 +117,7 @@ export default function ExperimentData() {
           <Card style={{ borderRadius: 10 }} bodyStyle={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <ClockCircleOutlined style={{ fontSize: 24, color: '#faad14' }} />
-              <span style={{ fontSize: 14, color: isDark ? '#999' : '#666' }}>未更新设备</span>
+              <span style={{ fontSize: 14, color: isDark ? '#999' : '#666' }}>未同步设备</span>
             </div>
             <Statistic
               value={notUpdatedCount}

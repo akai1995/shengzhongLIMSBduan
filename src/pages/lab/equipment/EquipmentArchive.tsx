@@ -305,7 +305,7 @@ export default function EquipmentArchive() {
         ]}
       >
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <div style={{ display: 'inline-block', width: 200, height: 200, backgroundColor: '#f0f0f0', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 200, height: 200, backgroundColor: '#f0f0f0', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <QrcodeOutlined style={{ fontSize: 120, color: '#999' }} />
           </div>
           <p style={{ marginTop: 16, color: '#666' }}>设备二维码（示例）</p>

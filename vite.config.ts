@@ -9,6 +9,6 @@ export default defineConfig(({ command }) => {
       host: '0.0.0.0',
       port: 5173
     },
-    base: '/shengzhongLIMSBduan/'
+    base: command === 'build' ? './' : '/shengzhongLIMSBduan/'
   }
 })

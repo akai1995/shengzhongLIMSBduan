@@ -1,6 +1,9 @@
-import { Card, Form, Input, Button, Select, Table, DatePicker, Modal, Tag, Space, message, Upload, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, LockOutlined, UploadOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons'
+import { Card, Form, Input, Button, Select, Table, DatePicker, Modal, Tag, Space, message, Upload, Row, Col, Dropdown } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, LockOutlined, UploadOutlined, DownOutlined, UpOutlined, SearchOutlined, ExportOutlined, FilePdfOutlined, FileWordOutlined } from '@ant-design/icons'
+import type { MenuProps } from 'antd'
+
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import PageTitle from '../../../components/PageTitle/PageTitle'
 import { useThemeStore } from '../../../store/themeStore'
 
@@ -42,16 +45,18 @@ interface ExperimentRecord {
 
 export default function ElnRecord() {
   const { isDark } = useThemeStore()
+  const navigate = useNavigate()
   const [form] = Form.useForm()
   const [searchForm] = Form.useForm()
   const [detailModalVisible, setDetailModalVisible] = useState(false)
   const [createModalVisible, setCreateModalVisible] = useState(false)
+  const [templateSelectModalVisible, setTemplateSelectModalVisible] = useState(false)
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [signatureModalVisible, setSignatureModalVisible] = useState(false)
   const [deleteModalVisible, setDeleteModalVisible] = useState(false)
   const [currentRecord, setCurrentRecord] = useState<ExperimentRecord | null>(null)
   const [deleteRecord, setDeleteRecord] = useState<ExperimentRecord | null>(null)
-  const [_selectedRows, setSelectedRows] = useState<string[]>([])
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
   const [expanded, setExpanded] = useState(false)
   const [tableData, setTableData] = useState<ExperimentRecord[]>([])
   const [filteredData, setFilteredData] = useState<ExperimentRecord[]>([])
@@ -61,59 +66,35 @@ export default function ElnRecord() {
   const idCounterRef = useRef(101)
 
   useEffect(() => {
-    const initialData: ExperimentRecord[] = Array.from({ length: 100 }, (_, i) => {
-      const locked = [false, false, true, false, false]
-      const names = ['细胞培养实验记录', 'PCR扩增实验记录', 'Western Blot实验', '免疫组化实验', '动物实验记录', '临床样本处理', '数据统计分析', '试剂配制记录']
-      const templates = ['细胞培养模板', 'PCR实验模板', 'Western Blot模板', '免疫组化模板', '动物实验模板', '临床样本处理模板', '数据统计分析模板', '试剂配制模板']
-      const creators = ['张医生', '李医生', '王医生', '赵医生', '钱医生', '孙医生']
-      const modifiers = ['张医生', '李医生', '王医生', '赵医生', '钱医生', '孙医生', '周医生', '吴医生']
-      const signers = ['张医生', '李医生', '王医生', '赵医生', '钱医生']
-      const versionCount = Math.floor(Math.random() * 3) + 1
-      const versions: VersionInfo[] = []
-      const baseName = names[i % names.length]
-      const basePurpose = `研究${baseName}的相关特性`
-      const baseSteps = `1. 准备实验材料\n2. 进行${baseName}\n3. 数据采集\n4. 结果分析`
-      const baseData = `实验数据记录：样本数=${100 + i * 10}，对照组=${50 + i * 5}，实验组=${50 + i * 5}`
-      const baseAnalysis = `${baseName}完成，结果符合预期，建议进一步验证`
-      const isLocked = locked[i % locked.length]
-      const signatureNames = ['张三签名', '李四签名', '王五签名', '赵六签名', '钱七签名']
-      
-      for (let v = 1; v <= versionCount; v++) {
-        versions.push({
-          version: `v${v}.0`,
-          modifier: modifiers[(i + v) % modifiers.length],
-          modifyTime: v === versionCount 
-            ? `2026-05-${String(1 + (i % 28)).padStart(2, '0')}` 
-            : `2026-05-${String(Math.max(1, 1 + (i % 28) - (versionCount - v))).padStart(2, '0')}`,
-          isCurrent: v === versionCount,
-          purpose: v === 1 ? basePurpose : `${basePurpose}（版本${v}）`,
-          steps: v === 1 ? baseSteps : `${baseSteps}（版本${v}修订）`,
-          data: v === 1 ? baseData : `${baseData}（版本${v}更新）`,
-          analysis: v === 1 ? baseAnalysis : `${baseAnalysis}（版本${v}修正）`
-        })
-      }
-      
-      return {
-        key: String(i + 1),
-        id: `ELN2026${String(i + 1).padStart(4, '0')}`,
-        name: baseName + (i >= names.length ? `-${Math.floor(i / names.length) + 1}` : ''),
-        creator: creators[i % creators.length],
-        template: templates[i % templates.length],
-        version: `v${versionCount}.0`,
-        createTime: `2026-05-${String(Math.max(1, 1 + (i % 28) - versionCount + 1)).padStart(2, '0')}`,
-        lastModify: `2026-05-${String(1 + (i % 28)).padStart(2, '0')}`,
-        isLocked,
-        signatureImage: isLocked ? `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjUwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iNTAiIGZpbGw9IiNmOGYwZjAiLz48dGV4dCB4PSI1MCIgeT0iMzAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzMzMyI+${signatureNames[i % signatureNames.length]}PC90ZXh0Pjwvc3ZnPg==` : '',
-        signatureName: isLocked ? signers[i % signers.length] : '',
-        signatureTime: isLocked ? `2026-05-${String(1 + (i % 28)).padStart(2, '0')} 10:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}:00` : '',
-        purpose: basePurpose,
-        steps: baseSteps,
-        data: baseData,
-        analysis: baseAnalysis,
-        attachments: i % 3 === 0 ? ['实验图片1.jpg', '实验数据.xlsx', '分析报告.pdf'] : i % 3 === 1 ? ['原始数据.csv'] : [],
-        versions
-      }
-    })
+    const initialData: ExperimentRecord[] = [{
+      key: '1',
+      id: 'ELN20260001',
+      name: '昆明医科大学科研实验记录',
+      creator: '张医生',
+      template: '病理实验记录',
+      version: 'v1.0',
+      createTime: '2026-05-01',
+      lastModify: '2026-05-01',
+      isLocked: false,
+      signatureImage: '',
+      signatureName: '',
+      signatureTime: '',
+      purpose: '研究病理组织切片的相关特性',
+      steps: '1. 准备实验材料\n2. 进行病理组织切片\n3. 数据采集\n4. 结果分析',
+      data: '实验数据记录：样本数=100，对照组=50，实验组=50',
+      analysis: '病理组织切片完成，结果符合预期，建议进一步验证',
+      attachments: ['实验图片1.jpg', '实验数据.xlsx'],
+      versions: [{
+        version: 'v1.0',
+        modifier: '张医生',
+        modifyTime: '2026-05-01',
+        isCurrent: true,
+        purpose: '研究病理组织切片的相关特性',
+        steps: '1. 准备实验材料\n2. 进行病理组织切片\n3. 数据采集\n4. 结果分析',
+        data: '实验数据记录：样本数=100，对照组=50，实验组=50',
+        analysis: '病理组织切片完成，结果符合预期，建议进一步验证'
+      }]
+    }]
     setTableData(initialData)
     setFilteredData(initialData)
     idCounterRef.current = 101
@@ -179,6 +160,9 @@ export default function ElnRecord() {
               <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>删除</Button>
             </>
           )}
+          <Dropdown menu={{ items: getExportMenuItems(record) }}>
+            <Button type="text" icon={<ExportOutlined />}>导出</Button>
+          </Dropdown>
           <Button type="text" onClick={() => handleVersion(record)}>历史版本</Button>
         </Space>
       )
@@ -223,22 +207,76 @@ export default function ElnRecord() {
   }
 
   const handleCreate = () => {
-    form.resetFields()
-    setCurrentRecord(null)
-    setCreateModalVisible(true)
+    setTemplateSelectModalVisible(true)
   }
 
+  const handleSelectTemplate = (template: { title: string; content: string }) => {
+    setTemplateSelectModalVisible(false)
+    sessionStorage.setItem('eln_create_template', JSON.stringify({ title: template.title, content: template.content }))
+    navigate('/lab/eln/record/create')
+  }
+
+  const HOSPITAL_TEMPLATES = [
+    {
+      key: 'pathology',
+      title: '病理实验记录',
+      icon: '🔬',
+      description: '病理组织切片、染色、镜检等实验记录模板',
+      content: '<h3>病理实验记录</h3><table><tr><td style="width:120px;font-weight:bold">患者姓名：</td><td></td><td style="width:120px;font-weight:bold">住院号：</td><td></td></tr><tr><td style="font-weight:bold">病理号：</td><td></td><td style="font-weight:bold">送检科室：</td><td></td></tr><tr><td style="font-weight:bold">标本类型：</td><td></td><td style="font-weight:bold">送检日期：</td><td></td></tr></table><p><b>染色方法：</b></p><p><b>镜下所见：</b></p><p></p><p><b>病理诊断：</b></p><p></p><p><b>备注：</b></p>',
+    },
+    {
+      key: 'blood',
+      title: '血液检测实验',
+      icon: '🩸',
+      description: '血常规、生化、免疫、凝血等血液检测实验记录模板',
+      content: '<h3>血液检测实验</h3><table><tr><td style="width:120px;font-weight:bold">患者姓名：</td><td></td><td style="width:120px;font-weight:bold">样本编号：</td><td></td></tr><tr><td style="font-weight:bold">检测项目：</td><td></td><td style="font-weight:bold">样本类型：</td><td></td></tr><tr><td style="font-weight:bold">抽血时间：</td><td></td><td style="font-weight:bold">检测日期：</td><td></td></tr></table><p><b>检测方法：</b></p><p></p><p><b>检测结果：</b></p><p></p><p><b>参考范围：</b></p><p></p><p><b>结论：</b></p><p></p>',
+    },
+    {
+      key: 'pcr',
+      title: 'PCR扩增实验',
+      icon: '🧬',
+      description: 'PCR引物设计、扩增条件、产物检测等实验记录模板',
+      content: '<h3>PCR扩增实验</h3><table><tr><td style="width:120px;font-weight:bold">实验名称：</td><td></td><td style="width:120px;font-weight:bold">实验日期：</td><td></td></tr><tr><td style="font-weight:bold">样本来源：</td><td></td><td style="font-weight:bold">操作人员：</td><td></td></tr></table><p><b>引物序列：</b></p><p>Forward: </p><p>Reverse: </p><p><b>扩增条件：</b></p><p>预变性: 95°C, min</p><p>变性: 95°C, sec</p><p>退火: °C, sec</p><p>延伸: 72°C, sec</p><p>循环数: </p><p><b>结果：</b></p><p></p><p><b>结论：</b></p><p></p>',
+    },
+    {
+      key: 'western_blot',
+      title: 'Western Blot实验',
+      icon: '🔬',
+      description: '蛋白提取、电泳、转膜、抗体孵育、显影等实验记录模板',
+      content: '<h3>Western Blot实验</h3><table><tr><td style="width:120px;font-weight:bold">实验日期：</td><td></td><td style="width:120px;font-weight:bold">操作人员：</td><td></td></tr><tr><td style="font-weight:bold">样本来源：</td><td></td><td style="font-weight:bold">目的蛋白：</td><td></td></tr></table><p><b>蛋白提取方法：</b></p><p></p><p><b>电泳条件：</b></p><p>分离胶浓度: %, 电压: V, 时间: min</p><p><b>转膜条件：</b></p><p>膜类型: , 电流: mA, 时间: min</p><p><b>一抗信息：</b></p><p>名称: , 稀释比例: 1:, 孵育条件: </p><p><b>二抗信息：</b></p><p>名称: , 稀释比例: 1:, 孵育条件: </p><p><b>显影结果：</b></p><p></p><p><b>结论：</b></p><p></p>',
+    },
+    {
+      key: 'cell_culture',
+      title: '细胞培养实验',
+      icon: '🧫',
+      description: '细胞复苏、传代、冻存、转染等细胞培养实验记录模板',
+      content: '<h3>细胞培养实验</h3><table><tr><td style="width:120px;font-weight:bold">细胞名称：</td><td></td><td style="width:120px;font-weight:bold">细胞代数：</td><td></td></tr><tr><td style="font-weight:bold">培养基：</td><td></td><td style="font-weight:bold">血清浓度：</td><td></td></tr><tr><td style="font-weight:bold">操作日期：</td><td></td><td style="font-weight:bold">操作人员：</td><td></td></tr></table><p><b>操作类型：</b> 复苏 / 传代 / 冻存 / 转染</p><p><b>操作步骤：</b></p><p>1. </p><p>2. </p><p>3. </p><p><b>细胞状态：</b></p><p>融合度: %, 存活率: %</p><p><b>注意事项：</b></p><p></p><p><b>结论：</b></p><p></p>',
+    },
+    {
+      key: 'ihc',
+      title: '免疫组化实验',
+      icon: '🔬',
+      description: 'IHC脱蜡、抗原修复、抗体孵育、DAB显色等实验记录模板',
+      content: '<h3>免疫组化实验</h3><table><tr><td style="width:120px;font-weight:bold">病理号：</td><td></td><td style="width:120px;font-weight:bold">实验日期：</td><td></td></tr><tr><td style="font-weight:bold">检测抗体：</td><td></td><td style="font-weight:bold">操作人员：</td><td></td></tr></table><p><b>抗原修复：</b></p><p>方法: , 时间: min, 温度: °C</p><p><b>一抗信息：</b></p><p>名称: , 稀释比例: 1:, 孵育条件: </p><p><b>检测系统：</b></p><p></p><p><b>DAB显色时间：</b> min</p><p><b>结果判读：</b></p><p>阳性部位: , 染色强度: , 阳性率: </p><p><b>结论：</b></p><p></p>',
+    },
+    {
+      key: 'frozen',
+      title: '冰冻切片实验',
+      icon: '🧊',
+      description: '冰冻切片制备、快速染色、术中诊断等实验记录模板',
+      content: '<h3>冰冻切片实验</h3><table><tr><td style="width:120px;font-weight:bold">患者姓名：</td><td></td><td style="width:120px;font-weight:bold">住院号：</td><td></td></tr><tr><td style="font-weight:bold">病理号：</td><td></td><td style="font-weight:bold">送检科室：</td><td></td></tr><tr><td style="font-weight:bold">标本类型：</td><td></td><td style="font-weight:bold">手术日期：</td><td></td></tr></table><p><b>取材部位：</b></p><p></p><p><b>切片厚度：</b> μm</p><p><b>染色方法：</b></p><p></p><p><b>镜下所见：</b></p><p></p><p><b>冰冻诊断：</b></p><p></p><p><b>与术后诊断对比：</b></p><p></p>',
+    },
+    {
+      key: 'tissue',
+      title: '组织处理实验',
+      icon: '🧫',
+      description: '组织固定、脱水、包埋、脱钙等组织处理记录模板',
+      content: '<h3>组织处理实验</h3><table><tr><td style="width:120px;font-weight:bold">患者姓名：</td><td></td><td style="width:120px;font-weight:bold">病理号：</td><td></td></tr><tr><td style="font-weight:bold">标本类型：</td><td></td><td style="font-weight:bold">处理日期：</td><td></td></tr></table><p><b>固定液：</b></p><p>固定时间: h</p><p><b>脱水程序：</b></p><p>75%乙醇: min, 85%乙醇: min, 95%乙醇: min, 无水乙醇: min</p><p><b>透明：</b></p><p>二甲苯: min</p><p><b>浸蜡：</b></p><p>石蜡: min, 温度: °C</p><p><b>包埋方式：</b></p><p></p><p><b>注意事项：</b></p><p></p>',
+    },
+  ]
+
   const handleEdit = (record: ExperimentRecord) => {
-    setCurrentRecord(record)
-    form.setFieldsValue({
-      name: record.name,
-      template: record.template,
-      purpose: record.purpose,
-      steps: record.steps,
-      data: record.data,
-      analysis: record.analysis
-    })
-    setEditModalVisible(true)
+    navigate(`/lab/eln/record/edit?id=${record.id}&name=${encodeURIComponent(record.name)}`)
   }
 
   const handleSignature = (record: ExperimentRecord) => {
@@ -254,6 +292,165 @@ export default function ElnRecord() {
   const handleVersion = (record: ExperimentRecord) => {
     setCurrentRecord(record)
     setVersionModalVisible(true)
+  }
+
+  const getExportMenuItems = (record: ExperimentRecord): MenuProps['items'] => [
+    {
+      key: 'pdf',
+      icon: <FilePdfOutlined />,
+      label: '导出为PDF',
+      onClick: () => handleExport(record, 'pdf'),
+    },
+    {
+      key: 'word',
+      icon: <FileWordOutlined />,
+      label: '导出为Word',
+      onClick: () => handleExport(record, 'word'),
+    },
+  ]
+
+  const getBatchExportMenuItems = (): MenuProps['items'] => [
+    {
+      key: 'pdf',
+      icon: <FilePdfOutlined />,
+      label: '批量导出PDF',
+      onClick: () => handleBatchExport('pdf'),
+    },
+    {
+      key: 'word',
+      icon: <FileWordOutlined />,
+      label: '批量导出Word',
+      onClick: () => handleBatchExport('word'),
+    },
+  ]
+
+  const buildExportHtml = (records: ExperimentRecord[]) => {
+    const recordsHtml = records.map(record => `
+      <div style="page-break-after: always;">
+        <h1>${record.name}</h1>
+        <h2>基本信息</h2>
+        <table>
+          <tr><td class="label" style="width:120px">记录ID</td><td>${record.id}</td><td class="label" style="width:120px">实验名称</td><td>${record.name}</td></tr>
+          <tr><td class="label">创建人</td><td>${record.creator}</td><td class="label">模板名称</td><td>${record.template}</td></tr>
+          <tr><td class="label">当前版本</td><td>${record.version}</td><td class="label">签名状态</td><td>${record.isLocked ? '已锁定' : '未锁定'}</td></tr>
+          <tr><td class="label">创建时间</td><td>${record.createTime}</td><td class="label">最后修改</td><td>${record.lastModify}</td></tr>
+        </table>
+        <h2>实验目的</h2>
+        <p class="content">${record.purpose || '暂无内容'}</p>
+        <h2>实验步骤</h2>
+        <p class="content">${record.steps || '暂无内容'}</p>
+        <h2>实验数据</h2>
+        <p class="content">${record.data || '暂无内容'}</p>
+        <h2>结果分析</h2>
+        <p class="content">${record.analysis || '暂无内容'}</p>
+        ${record.attachments.length > 0 ? `<h2>附件</h2><p>${record.attachments.join('、')}</p>` : ''}
+      </div>
+    `).join('')
+
+    return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="utf-8"><title>实验记录</title>
+      <style>
+        body { font-family: "SimSun","宋体",serif; font-size: 14px; color: #262626; line-height: 2; padding: 40px; }
+        h1 { font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 20px; }
+        h2 { font-size: 16px; font-weight: bold; margin: 16px 0 8px; border-bottom: 1px solid #E5E5E5; padding-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+        td, th { border: 1px solid #D9D9D9; padding: 6px 10px; font-size: 14px; }
+        th { background: #FAFAFA; font-weight: bold; }
+        .label { color: #8C8C8C; }
+        .content { white-space: pre-wrap; }
+      </style></head><body>${recordsHtml}</body></html>`
+  }
+
+  const handleExport = (record: ExperimentRecord, format: 'pdf' | 'word') => {
+    const htmlContent = buildExportHtml([record])
+
+    if (format === 'word') {
+      const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${record.name}.doc`
+      link.click()
+      URL.revokeObjectURL(url)
+      message.success('Word文件导出成功')
+    } else {
+      Promise.all([import('jspdf'), import('html2canvas')]).then(([jsPDF, html2canvas]) => {
+        const container = document.createElement('div')
+        container.innerHTML = htmlContent
+        container.style.cssText = 'font-family:"SimSun","宋体",serif;font-size:14px;color:#262626;line-height:2;padding:40px 60px;background:#fff;width:794px;position:absolute;left:-9999px;'
+        document.body.appendChild(container)
+        html2canvas.default(container, { scale: 2, useCORS: true }).then((canvas: HTMLCanvasElement) => {
+          const imgData = canvas.toDataURL('image/jpeg', 0.98)
+          const pdf = new jsPDF.default('p', 'mm', 'a4')
+          const pdfWidth = pdf.internal.pageSize.getWidth()
+          const pdfHeight = pdf.internal.pageSize.getHeight()
+          const imgWidth = pdfWidth - 20
+          const imgHeight = (canvas.height * imgWidth) / canvas.width
+          let heightLeft = imgHeight
+          let position = 10
+          pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight)
+          heightLeft -= (pdfHeight - 20)
+          while (heightLeft > 0) {
+            position = heightLeft - imgHeight + 10
+            pdf.addPage()
+            pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight)
+            heightLeft -= (pdfHeight - 20)
+          }
+          pdf.save(`${record.name}.pdf`)
+          document.body.removeChild(container)
+          message.success('PDF文件导出成功')
+        })
+      })
+    }
+  }
+
+  const handleBatchExport = (format: 'pdf' | 'word') => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请先选择需要导出的记录')
+      return
+    }
+    const selectedRecords = filteredData.filter(item => selectedRowKeys.includes(item.key))
+    const htmlContent = buildExportHtml(selectedRecords)
+    const fileName = selectedRecords.length === 1 ? selectedRecords[0].name : `实验记录批量导出(${selectedRecords.length}条)`
+
+    if (format === 'word') {
+      const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${fileName}.doc`
+      link.click()
+      URL.revokeObjectURL(url)
+      message.success(`已批量导出 ${selectedRecords.length} 条记录为Word文件`)
+    } else {
+      Promise.all([import('jspdf'), import('html2canvas')]).then(([jsPDF, html2canvas]) => {
+        const container = document.createElement('div')
+        container.innerHTML = htmlContent
+        container.style.cssText = 'font-family:"SimSun","宋体",serif;font-size:14px;color:#262626;line-height:2;padding:40px 60px;background:#fff;width:794px;position:absolute;left:-9999px;'
+        document.body.appendChild(container)
+        html2canvas.default(container, { scale: 2, useCORS: true }).then((canvas: HTMLCanvasElement) => {
+          const imgData = canvas.toDataURL('image/jpeg', 0.98)
+          const pdf = new jsPDF.default('p', 'mm', 'a4')
+          const pdfWidth = pdf.internal.pageSize.getWidth()
+          const pdfHeight = pdf.internal.pageSize.getHeight()
+          const imgWidth = pdfWidth - 20
+          const imgHeight = (canvas.height * imgWidth) / canvas.width
+          let heightLeft = imgHeight
+          let position = 10
+          pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight)
+          heightLeft -= (pdfHeight - 20)
+          while (heightLeft > 0) {
+            position = heightLeft - imgHeight + 10
+            pdf.addPage()
+            pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight)
+            heightLeft -= (pdfHeight - 20)
+          }
+          pdf.save(`${fileName}.pdf`)
+          document.body.removeChild(container)
+          message.success(`已批量导出 ${selectedRecords.length} 条记录为PDF文件`)
+        })
+      })
+    }
   }
 
   const handleViewVersion = (version: VersionInfo) => {
@@ -496,16 +693,24 @@ export default function ElnRecord() {
       </Card>
 
       <Card style={{ borderRadius: 10 }} bodyStyle={{ padding: 20 }}>
-        <Button type="primary" style={{ marginBottom: 16 }} icon={<PlusOutlined />} onClick={handleCreate}>
-          新建实验记录
-        </Button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            新建实验记录
+          </Button>
+          <Dropdown menu={{ items: getBatchExportMenuItems() }}>
+            <Button icon={<ExportOutlined />} disabled={selectedRowKeys.length === 0}>
+              批量导出{selectedRowKeys.length > 0 ? `(${selectedRowKeys.length})` : ''}
+            </Button>
+          </Dropdown>
+        </div>
         <Table 
           columns={columns} 
           dataSource={filteredData} 
           scroll={{ x: 'max-content' }}
           rowSelection={{
             type: 'checkbox',
-            onChange: (selectedRowKeys) => setSelectedRows(selectedRowKeys as string[])
+            selectedRowKeys,
+            onChange: (keys) => setSelectedRowKeys(keys as string[])
           }}
           pagination={{ 
             pageSize: 10,
@@ -623,134 +828,6 @@ export default function ElnRecord() {
           <Button onClick={() => setDetailModalVisible(false)}>关闭</Button>
           <Button type="primary" onClick={() => { setDetailModalVisible(false); handleVersion(currentRecord!) }}>历史版本</Button>
         </div>
-      </Modal>
-
-      <Modal
-        title="新建实验记录"
-        open={createModalVisible}
-        onCancel={() => setCreateModalVisible(false)}
-        footer={null}
-        width="90%"
-        style={{ maxWidth: '1200px' }}
-        bodyStyle={{ padding: '20px', maxHeight: '80vh', overflowY: 'auto' }}
-      >
-        <Form form={form} layout="vertical" onFinish={handleCreateSubmit}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="实验名称" name="name" rules={[{ required: true, message: '请输入实验名称' }]}>
-                <Input placeholder="请输入实验名称" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="实验模板" name="template" rules={[{ required: true, message: '请选择实验模板' }]}>
-                <Select placeholder="请选择实验模板">
-                  <Option value="细胞培养模板">细胞培养模板</Option>
-                  <Option value="PCR实验模板">PCR实验模板</Option>
-                  <Option value="Western Blot模板">Western Blot模板</Option>
-                  <Option value="免疫组化模板">免疫组化模板</Option>
-                  <Option value="动物实验模板">动物实验模板</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item label="实验目的" name="purpose">
-            <TextArea rows={3} placeholder="请输入实验目的" />
-          </Form.Item>
-          
-          <Form.Item label="实验步骤" name="steps">
-            <TextArea rows={6} placeholder="请输入实验步骤，每行一步" />
-          </Form.Item>
-          
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="实验数据" name="data">
-                <TextArea rows={4} placeholder="请输入实验数据" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="结果分析" name="analysis">
-                <TextArea rows={4} placeholder="请输入结果分析" />
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item label="附件上传" name="attachments">
-            <Upload.Dragger multiple>
-              <p className="ant-upload-drag-icon"><UploadOutlined /></p>
-              <p className="ant-upload-text">点击或拖拽文件到此处上传（支持多文件）</p>
-            </Upload.Dragger>
-          </Form.Item>
-          
-          <Form.Item style={{ marginTop: 20, marginBottom: 0 }}>
-            <Button onClick={() => setCreateModalVisible(false)}>取消</Button>
-            <Button type="primary" style={{ marginLeft: 10 }} htmlType="submit">保存</Button>
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        title="编辑实验记录"
-        open={editModalVisible}
-        onCancel={() => setEditModalVisible(false)}
-        footer={null}
-        width="90%"
-        style={{ maxWidth: '1200px' }}
-        bodyStyle={{ padding: '20px', maxHeight: '80vh', overflowY: 'auto' }}
-      >
-        <Form form={form} layout="vertical" onFinish={handleEditSubmit}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="实验名称" name="name" rules={[{ required: true, message: '请输入实验名称' }]}>
-                <Input placeholder="请输入实验名称" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="实验模板" name="template" rules={[{ required: true, message: '请选择实验模板' }]}>
-                <Select placeholder="请选择实验模板">
-                  <Option value="细胞培养模板">细胞培养模板</Option>
-                  <Option value="PCR实验模板">PCR实验模板</Option>
-                  <Option value="Western Blot模板">Western Blot模板</Option>
-                  <Option value="免疫组化模板">免疫组化模板</Option>
-                  <Option value="动物实验模板">动物实验模板</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item label="实验目的" name="purpose">
-            <TextArea rows={3} placeholder="请输入实验目的" />
-          </Form.Item>
-          
-          <Form.Item label="实验步骤" name="steps">
-            <TextArea rows={6} placeholder="请输入实验步骤，每行一步" />
-          </Form.Item>
-          
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="实验数据" name="data">
-                <TextArea rows={4} placeholder="请输入实验数据" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="结果分析" name="analysis">
-                <TextArea rows={4} placeholder="请输入结果分析" />
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item label="附件上传" name="attachments">
-            <Upload.Dragger multiple>
-              <p className="ant-upload-drag-icon"><UploadOutlined /></p>
-              <p className="ant-upload-text">点击或拖拽文件到此处上传（支持多文件）</p>
-            </Upload.Dragger>
-          </Form.Item>
-          
-          <Form.Item style={{ marginTop: 20, marginBottom: 0 }}>
-            <Button onClick={() => setEditModalVisible(false)}>取消</Button>
-            <Button type="primary" style={{ marginLeft: 10 }} htmlType="submit">保存</Button>
-          </Form.Item>
-        </Form>
       </Modal>
 
       <Modal
@@ -919,6 +996,47 @@ export default function ElnRecord() {
           }}>关闭</Button>
         </div>
       </Modal>
+
+      <Modal
+        title="选择实验记录模板"
+        open={templateSelectModalVisible}
+        onCancel={() => setTemplateSelectModalVisible(false)}
+        footer={null}
+        width={900}
+      >
+        <p style={{ color: '#8C8C8C', marginBottom: 16 }}>请选择与您实验相关的模板，模板内容将自动填充到新建实验记录中</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {HOSPITAL_TEMPLATES.map(template => (
+            <div
+              key={template.key}
+              onClick={() => handleSelectTemplate(template)}
+              style={{
+                padding: 16,
+                border: `1px solid ${isDark ? '#2C2C2C' : '#E5E5E5'}`,
+                borderRadius: 8,
+                cursor: 'pointer',
+                backgroundColor: isDark ? '#141414' : '#FFFFFF',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#177DDC'
+                e.currentTarget.style.backgroundColor = isDark ? '#141F28' : '#E7F2FB'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = isDark ? '#2C2C2C' : '#E5E5E5'
+                e.currentTarget.style.backgroundColor = isDark ? '#141414' : '#FFFFFF'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 24 }}>{template.icon}</span>
+                <span style={{ fontSize: 16, fontWeight: 600 }}>{template.title}</span>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: '#8C8C8C' }}>{template.description}</p>
+            </div>
+          ))}
+        </div>
+      </Modal>
+
     </div>
   )
 }
